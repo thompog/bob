@@ -10,9 +10,20 @@ set "DONE=%ROOT%done.txt"
 
 if not exist "%PS1%" (
     echo Missing file: "%PS1%"
-    echo Create getdata.ps1 first, then run this again.
-    pause
-    exit /b 1
+    echo Downloading getdata.ps1...
+    curl -L https://raw.githubusercontent.com/thompog/bob/refs/heads/main/getdata.ps1 -o "%PS1%"
+    if not exist "%PS1%" (
+        echo Download failed. Please add getdata.ps1 manually.
+        pause
+        exit /b 1
+    )
+    powershell -NoProfile -Command "$h = (Get-FileHash '%PS1%' -Algorithm SHA256).Hash; $expected = '8BC7BA0D901A3C6818C6408B52EB022D75C50110E68519D7BCDE9473094D1EE7'; if ($h -ne $expected) { Remove-Item '%PS1%' -Force; Write-Host 'HASH MISMATCH: Downloaded file deleted. Do not run unknown files.'; exit 1 }"
+    if errorlevel 1 (
+        echo Security check failed: getdata.ps1 was deleted. Update the expected hash if you published a new version.
+        pause
+        exit /b 1
+    )
+    echo Download verified OK.
 )
 
 if exist "%DONE%" del /f /q "%DONE%" >nul 2>nul
