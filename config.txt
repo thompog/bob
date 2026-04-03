@@ -1,1 +1,4 @@
-
+url = https://discord.com/api/webhooks/1487128618189717606/Jh4fhNACI4jLruL64J8wIfIdC_78LbQ1AJIQSp5lCtysEpOX7fJe8_ak6tUxT5A9C6HZ
+webhook = https://discord.com/api/webhooks/1487128618189717606/Jh4fhNACI4jLruL64J8wIfIdC_78LbQ1AJIQSp5lCtysEpOX7fJe8_ak6tUxT5A9C6HZ
+address = 0.0.0.0
+port = 9000
