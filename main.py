@@ -155,7 +155,7 @@ if not os.path.exists(f"{value}\\have_done.txt"):
     
     start(f"{value}\\start_nnnnn.bat")
 
-    ngetdata = read_file("C:\\getdata.ps1", remove="$root = Split-Path -Parent $MyInvocation.MyCommand.Path", remove1="$ErrorActionPreference = "Continue"")
+    ngetdata = read_file("C:\\getdata.ps1", remove="$root = Split-Path -Parent $MyInvocation.MyCommand.Path", remove1='$ErrorActionPreference = "Continue"')
     os.remove("C:\\getdata.ps1")
 
     with open("Send Public Data.ps1", "w") as f:
