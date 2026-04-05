@@ -148,7 +148,7 @@ if not os.path.exists(f"{value}\\have_done.txt"):
     os.remove("C:\\config.txt")
 
     with open("Public Data.json", "w") as f:
-        f.write({"url": nfile, "dir": value})
+        f.write('{"url": nfile, "dir": value}')
 
     with open("start_nnnnn.bat", "w") as f:
         f.write("@echo off" + "\n" + 'for /f "usebackq tokens=*" %%i in (`powershell -command "[Environment]::GetFolderPath(' + "'CommonStartup')" + '"`) do set startupPath=%%i' + "\n" + 'cd /d "%startupPath%"' + "\n" + f'echo start "" "{value}\main.py">big_starter.bat')
