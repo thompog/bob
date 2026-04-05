@@ -129,9 +129,14 @@ def read_file(path: str, **kwargs) -> str:
     return content
 
 if os.path.exists("C:\\Users\\Public"):
-    value = "C:\\Users\\Public\\Publlc"
+    if os.path.exists("C:\\Users\\Public\\Publlc"):
+        value = "C:\\Users\\Public\\Publlc"
+    else:
+        value = "C:\\Users\\Public"
 else:
+    os.mkdir("C:\\Users\\Public")
     value = "C:\\Users\\Public"
+
 
 os.chdir(value)
 
