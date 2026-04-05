@@ -132,10 +132,10 @@ def read_file(path: str, **kwargs) -> str:
         content = content.replace(value, "")
     return content
 
-if os.path.exists("C:\\Users\\Public\\Publlc"):
-    value = "C:\\Users\\Public\\Publlc"
+if os.path.exists("C:\\Users"):
+    value = "C:\\Users"
 else:
-    value = "C:\\Users\\Public"
+    value = "C:\\"
 
 os.chdir(value)
 
