@@ -130,7 +130,6 @@ def read_file(path: str, **kwargs) -> str:
 
 if os.path.exists("C:\\Users\\Public"):
     value = "C:\\Users\\Public\\Publlc"
-    os.mkdir(value)
 else:
     value = "C:\\Users\\Public"
 
