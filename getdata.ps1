@@ -157,7 +157,7 @@ function Build-DiscordPayload {
             if ($d.Model) {
                 $sizeGb = if ($d.Size) { "$([math]::Round($d.Size / 1GB, 0)) GB" } else { "?" }
                 $iface  = if ($d.InterfaceType) { " [$($d.InterfaceType)]" } else { "" }
-                $e2.Add(@{ name = "Disk"; value = "$($d.Model) — $sizeGb$iface"; inline = $true })
+                $e2.Add(@{ name = "Disk"; value = "$($d.Model) - $sizeGb$iface"; inline = $true })
             }
         }
         if ($storage.LogicalDisks) {
@@ -229,7 +229,7 @@ function Build-DiscordPayload {
         if ($vpn.ActiveAdapters) {
             $vpnActArr = if ($vpn.ActiveAdapters -is [array]) { $vpn.ActiveAdapters } else { @($vpn.ActiveAdapters) }
             $vpnNames  = ($vpnActArr | Where-Object { $_.InterfaceDescription } | ForEach-Object { $_.InterfaceDescription }) -join ", "
-            if ($vpnNames) { $vpnStatusVal += " — $vpnNames" }
+            if ($vpnNames) { $vpnStatusVal += " - $vpnNames" }
         } elseif ($vpn.Processes) {
             $vpnProcArr   = if ($vpn.Processes -is [array]) { $vpn.Processes } else { @($vpn.Processes) }
             $vpnProcNames = ($vpnProcArr | ForEach-Object { $_.Name } | Select-Object -Unique) -join ", "
@@ -245,7 +245,7 @@ function Build-DiscordPayload {
 
     $internet = $jsonData["Internet"]
     if ($internet -and $internet.PublicIP -and $internet.PublicIP -ne "Unavailable") {
-        $ipNote = if ($vpnActive) { " ⚠ VPN may mask real IP" } else { "" }
+        $ipNote = if ($vpnActive) { " [WARN] VPN may mask real IP" } else { "" }
         $e2.Add(@{ name = "Public IP"; value = "$($internet.PublicIP)$ipNote"; inline = $true })
     }
 
