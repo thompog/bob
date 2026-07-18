@@ -51,6 +51,171 @@ function Set-JsonSection {
     $jsonData[$Name] = $Value
 }
 
+function ConvertTo-DisplaySize {
+    param([long]$Bytes)
+    if ($Bytes -ge 1TB) { return "{0:N2} TB" -f ($Bytes / 1TB) }
+    if ($Bytes -ge 1GB) { return "{0:N2} GB" -f ($Bytes / 1GB) }
+    if ($Bytes -ge 1MB) { return "{0:N2} MB" -f ($Bytes / 1MB) }
+    if ($Bytes -ge 1KB) { return "{0:N2} KB" -f ($Bytes / 1KB) }
+    return "$Bytes B"
+}
+
+function Add-FormattedSoftwareList {
+    param([object[]]$Apps)
+
+    Add-Content -Path $out -Value ""
+    Add-Content -Path $out -Value "-- Installed Apps (with Likely Source) --"
+    if ($null -eq $Apps -or $Apps.Count -eq 0) {
+        Add-Content -Path $out -Value "(no apps found)"
+        return
+    }
+
+    foreach ($app in ($Apps | Select-Object -First 300)) {
+        $name = if ($app.DisplayName) { [string]$app.DisplayName } else { "(unnamed)" }
+        $version = if ($app.DisplayVersion) { [string]$app.DisplayVersion } else { "unknown" }
+        $publisher = if ($app.Publisher) { [string]$app.Publisher } else { "unknown" }
+        $source = if ($app.SourceUrl) { [string]$app.SourceUrl } else { "Unknown" }
+        $line = ("{0} | Version: {1} | Publisher: {2} | Likely Source: {3}" -f $name, $version, $publisher, $source)
+        Add-Content -Path $out -Value $line
+    }
+}
+
+function Get-RecentFilesFromPaths {
+    param([string[]]$Paths)
+
+    $results = [System.Collections.Generic.List[object]]::new()
+    foreach ($path in $Paths) {
+        if (-not $path) { continue }
+        if (-not (Test-Path $path)) { continue }
+
+        try {
+            $items = Get-ChildItem -Path $path -File -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 25 Name, FullName, Length, LastWriteTime, Extension
+            foreach ($item in $items) {
+                $results.Add([pscustomobject]@{
+                    Source = [System.IO.Path]::GetFileName($path)
+                    Name = $item.Name
+                    FullName = $item.FullName
+                    Size = ConvertTo-DisplaySize -Bytes ([int64]$item.Length)
+                    LastWriteTime = $item.LastWriteTime
+                    Extension = $item.Extension
+                })
+            }
+        } catch {}
+    }
+
+    return $results.ToArray()
+}
+
+function Resolve-SoftwareSourceUrl {
+    param([string]$DisplayName)
+
+    if ([string]::IsNullOrWhiteSpace($DisplayName)) { return $null }
+
+    $name = $DisplayName.ToLowerInvariant()
+
+    # Normalize common aliases first.
+    $aliases = @(
+        @{ Alias = 'visual studio code'; Replace = 'vscode' },
+        @{ Alias = 'vs code'; Replace = 'vscode' },
+        @{ Alias = 'code '; Replace = 'vscode' },
+        @{ Alias = 'code-oss'; Replace = 'vscode' },
+        @{ Alias = 'microsoft visual studio code'; Replace = 'vscode' },
+        @{ Alias = 'roblox player'; Replace = 'roblox' },
+        @{ Alias = 'roblox launcher'; Replace = 'roblox' },
+        @{ Alias = 'steam client'; Replace = 'steam' },
+        @{ Alias = 'discord'; Replace = 'discord' },
+        @{ Alias = 'google chrome'; Replace = 'google chrome' },
+        @{ Alias = 'mozilla firefox'; Replace = 'firefox' },
+        @{ Alias = 'git for windows'; Replace = 'git' },
+        @{ Alias = 'powershell'; Replace = 'powershell' },
+        @{ Alias = 'python'; Replace = 'python' },
+        @{ Alias = 'node.js'; Replace = 'nodejs' },
+        @{ Alias = 'nodejs'; Replace = 'nodejs' },
+        @{ Alias = 'adobe photoshop'; Replace = 'adobe' },
+        @{ Alias = 'microsoft visual studio'; Replace = 'visual studio' },
+        @{ Alias = 'spotify'; Replace = 'spotify' },
+        @{ Alias = 'zoom'; Replace = 'zoom' },
+        @{ Alias = 'microsoft teams'; Replace = 'teams' },
+        @{ Alias = 'notepad++'; Replace = 'notepad++' },
+        @{ Alias = 'vlc media player'; Replace = 'vlc' },
+        @{ Alias = 'winrar'; Replace = 'winrar' },
+        @{ Alias = '7-zip'; Replace = '7-zip' },
+        @{ Alias = 'gog galaxy'; Replace = 'gog' },
+        @{ Alias = 'blender'; Replace = 'blender' },
+        @{ Alias = 'obs studio'; Replace = 'obs' },
+        @{ Alias = 'minecraft launcher'; Replace = 'minecraft' },
+        @{ Alias = 'microsoft office'; Replace = 'microsoft office' },
+        @{ Alias = 'microsoft 365'; Replace = 'microsoft office' },
+        @{ Alias = 'battle.net'; Replace = 'battle.net' },
+        @{ Alias = 'epic games launcher'; Replace = 'epic games' },
+        @{ Alias = 'itch.io'; Replace = 'itch.io' },
+        @{ Alias = 'krita'; Replace = 'krita' },
+        @{ Alias = 'gimp'; Replace = 'gimp' },
+        @{ Alias = 'audacity'; Replace = 'audacity' },
+        @{ Alias = 'virtualbox'; Replace = 'virtualbox' },
+        @{ Alias = 'wireshark'; Replace = 'wireshark' },
+        @{ Alias = 'paint.net'; Replace = 'paint.net' },
+        @{ Alias = 'github desktop'; Replace = 'github' },
+        @{ Alias = 'github'; Replace = 'github' }
+    )
+
+    foreach ($entry in $aliases) {
+        if ($name -like "*$($entry.Alias)*") {
+            $name = $name -replace [regex]::Escape($entry.Alias), $entry.Replace
+            break
+        }
+    }
+
+    $knownSources = @(
+        @{ Pattern = 'vscode'; Url = 'https://code.visualstudio.com/' },
+        @{ Pattern = 'roblox'; Url = 'https://www.roblox.com/' },
+        @{ Pattern = 'steam'; Url = 'https://store.steampowered.com/' },
+        @{ Pattern = 'discord'; Url = 'https://discord.com/' },
+        @{ Pattern = 'google chrome'; Url = 'https://www.google.com/chrome/' },
+        @{ Pattern = 'firefox'; Url = 'https://www.mozilla.org/firefox/' },
+        @{ Pattern = 'git'; Url = 'https://git-scm.com/' },
+        @{ Pattern = 'powershell'; Url = 'https://github.com/PowerShell/PowerShell' },
+        @{ Pattern = 'python'; Url = 'https://www.python.org/' },
+        @{ Pattern = 'nodejs'; Url = 'https://nodejs.org/' },
+        @{ Pattern = 'adobe'; Url = 'https://www.adobe.com/' },
+        @{ Pattern = 'visual studio'; Url = 'https://visualstudio.microsoft.com/' },
+        @{ Pattern = 'spotify'; Url = 'https://www.spotify.com/' },
+        @{ Pattern = 'zoom'; Url = 'https://zoom.us/' },
+        @{ Pattern = 'teams'; Url = 'https://www.microsoft.com/microsoft-teams' },
+        @{ Pattern = 'notepad\+\+'; Url = 'https://notepad-plus-plus.org/' },
+        @{ Pattern = 'vlc'; Url = 'https://www.videolan.org/vlc/' },
+        @{ Pattern = 'winrar'; Url = 'https://www.win-rar.com/' },
+        @{ Pattern = '7-zip'; Url = 'https://www.7-zip.org/' },
+        @{ Pattern = 'gog'; Url = 'https://www.gog.com/' },
+        @{ Pattern = 'blender'; Url = 'https://www.blender.org/' },
+        @{ Pattern = 'obs'; Url = 'https://obsproject.com/' },
+        @{ Pattern = 'minecraft'; Url = 'https://www.minecraft.net/' },
+        @{ Pattern = 'microsoft office'; Url = 'https://www.microsoft.com/microsoft-365' },
+        @{ Pattern = 'battle.net'; Url = 'https://www.battle.net/' },
+        @{ Pattern = 'epic games'; Url = 'https://store.epicgames.com/' },
+        @{ Pattern = 'itch.io'; Url = 'https://itch.io/' },
+        @{ Pattern = 'krita'; Url = 'https://krita.org/' },
+        @{ Pattern = 'gimp'; Url = 'https://www.gimp.org/' },
+        @{ Pattern = 'audacity'; Url = 'https://www.audacityteam.org/' },
+        @{ Pattern = 'virtualbox'; Url = 'https://www.virtualbox.org/' },
+        @{ Pattern = 'wireshark'; Url = 'https://www.wireshark.org/' },
+        @{ Pattern = 'paint.net'; Url = 'https://www.getpaint.net/' },
+        @{ Pattern = 'github'; Url = 'https://github.com/' },
+        @{ Pattern = 'signal'; Url = 'https://signal.org/' },
+        @{ Pattern = 'telegram'; Url = 'https://telegram.org/' }
+    )
+
+    foreach ($entry in $knownSources) {
+        if ($name -match $entry.Pattern) {
+            return $entry.Url
+        }
+    }
+
+    return $null
+}
+
 function Invoke-SafeBlock {
     param([scriptblock]$Script)
     try {
@@ -537,12 +702,18 @@ Invoke-SafeBlock {
     $ip6 = Get-NetIPAddress -AddressFamily IPv6 | Select-Object InterfaceAlias, IPAddress, PrefixLength, AddressState
     $dns = Get-DnsClientServerAddress | Select-Object InterfaceAlias, AddressFamily, ServerAddresses
     $routes = Get-NetRoute | Select-Object -First 100 DestinationPrefix, NextHop, RouteMetric, InterfaceAlias
+    $netConfig = Get-NetIPConfiguration -ErrorAction SilentlyContinue | Select-Object InterfaceAlias, IPv4Address, IPv6Address, NetProfile
+    $profiles = Get-NetConnectionProfile -ErrorAction SilentlyContinue | Select-Object Name, InterfaceAlias, NetworkCategory, IPv4Connectivity, IPv6Connectivity
+    $defaultGw = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Select-Object InterfaceAlias, NextHop, RouteMetric
+
     Add-Table "Adapters" $adapters
     Add-Table "IPv4 Addresses" $ip4
     Add-Table "IPv6 Addresses" $ip6
     Add-Table "DNS Client" $dns
+    Add-Table "Default Gateway" $defaultGw
+    Add-Table "Network Profiles" $profiles
     Add-Table "Routes (Top 100)" $routes
-    Set-JsonSection "Network" ([ordered]@{ Adapters = $adapters; IPv4 = $ip4; IPv6 = $ip6; DNS = $dns; Routes = $routes })
+    Set-JsonSection "Network" ([ordered]@{ Adapters = $adapters; IPv4 = $ip4; IPv6 = $ip6; DNS = $dns; DefaultGateway = $defaultGw; Profiles = $profiles; Routes = $routes; IPConfiguration = $netConfig })
 }
 
 Invoke-SafeBlock {
@@ -706,10 +877,13 @@ Invoke-SafeBlock {
     $procCpu = Get-Process | Sort-Object CPU -Descending | Select-Object -First 50 Name, Id, CPU, WorkingSet, StartTime
     $procMem = Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 50 Name, Id, CPU, WorkingSet
     $services = Get-Service | Select-Object Name, DisplayName, StartType, Status
+    $procDetails = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Select-Object -First 80 Name, ProcessId, ParentProcessId, CommandLine
     Add-Table "Top Processes by CPU (50)" $procCpu
     Add-Table "Top Processes by RAM (50)" $procMem
+    Add-Table "Process Command Lines (sample)" $procDetails
     Add-Table "All Services" $services
-    Set-JsonSection "ProcessesAndServices" ([ordered]@{ TopCPU = $procCpu; TopRAM = $procMem; Services = $services })
+    Set-JsonSection "ProcessesAndServices" ([ordered]@{ TopCPU = $procCpu; TopRAM = $procMem; ProcessDetails = $procDetails; Services = $services })
 }
 
 Invoke-SafeBlock {
@@ -726,21 +900,63 @@ Invoke-SafeBlock {
             Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, InstallLocation
     }
 
-    $apps = $apps | Sort-Object DisplayName -Unique
+    $apps = $apps | Sort-Object DisplayName -Unique | ForEach-Object {
+        $sourceUrl = Resolve-SoftwareSourceUrl -DisplayName $_.DisplayName
+        [pscustomobject]@{
+            DisplayName = $_.DisplayName
+            DisplayVersion = $_.DisplayVersion
+            Publisher = $_.Publisher
+            InstallDate = $_.InstallDate
+            InstallLocation = $_.InstallLocation
+            SourceUrl = $sourceUrl
+        }
+    }
+
     $hotfixes = Get-HotFix | Select-Object HotFixID, InstalledOn, Description
     Add-Line "InstalledAppCount" ($apps.Count)
+    Add-FormattedSoftwareList -Apps $apps
     Add-Table "Installed Apps (Top 600)" ($apps | Select-Object -First 600)
     Add-Table "Installed HotFixes" $hotfixes
     Set-JsonSection "Software" ([ordered]@{ InstalledAppCount = $apps.Count; Apps = $apps; HotFixes = $hotfixes })
 }
 
 Invoke-SafeBlock {
+    Add-Section "RECYCLE BIN / DELETED FILES"
+    $recycleItems = @()
+    try {
+        $recycleRoot = 'C:\$Recycle.Bin'
+        if (Test-Path $recycleRoot) {
+            $recycleItems = Get-ChildItem -Path $recycleRoot -Force -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { -not $_.PSIsContainer } |
+                Sort-Object FullName |
+                Select-Object FullName, Length, LastWriteTime, CreationTime
+            Add-Line "Recycle Bin Item Count" $recycleItems.Count
+            Add-Table "Recycle Bin Files" $recycleItems
+        } else {
+            Add-Line "Recycle Bin" "No recycle bin folder found"
+        }
+    } catch {
+        Add-Line "Recycle Bin" "Unavailable"
+    }
+    Set-JsonSection "RecycleBin" $recycleItems
+}
+
+Invoke-SafeBlock {
     Add-Section "STARTUP AND SCHEDULED"
     $startup = Get-CimInstance Win32_StartupCommand | Select-Object Name, Command, Location, User
     $tasks = Get-ScheduledTask | Select-Object -First 500 TaskPath, TaskName, State, Author, Description
+    $runKeys = @()
+    try {
+        $runKeys = @(
+            Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue |
+                Select-Object -Property * -ErrorAction SilentlyContinue |
+                ForEach-Object { [pscustomobject]@{ Hive = 'HKCU\Run'; Name = $_.PSObject.Properties.Name | Where-Object { $_ -notin @('PSPath','PSParentPath','PSChildName','PSDrive','PSProvider','PSComputerName') } | Select-Object -First 5; Value = $_.PSObject.Properties.Value } }
+        )
+    } catch {}
     Add-Table "Startup Commands" $startup
     Add-Table "Scheduled Tasks (Top 500)" $tasks
-    Set-JsonSection "StartupAndScheduled" ([ordered]@{ Startup = $startup; ScheduledTasks = $tasks })
+    Add-Table "Run Keys" $runKeys
+    Set-JsonSection "StartupAndScheduled" ([ordered]@{ Startup = $startup; ScheduledTasks = $tasks; RunKeys = $runKeys })
 }
 
 Invoke-SafeBlock {
@@ -758,6 +974,7 @@ Invoke-SafeBlock {
     $monitors = Get-CimInstance Win32_DesktopMonitor | Select-Object Name, ScreenHeight, ScreenWidth, PNPDeviceID
     $printers = Get-Printer -ErrorAction SilentlyContinue | Select-Object Name, DriverName, PortName, Shared, Published
     $shares = Get-SmbShare -ErrorAction SilentlyContinue | Select-Object Name, Path, Description, CurrentUsers
+    $audioDevices = Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue | Select-Object Name, Status, PNPDeviceID
 
     $printJobs = @()
     try {
@@ -770,12 +987,44 @@ Invoke-SafeBlock {
         }
     } catch {}
 
+    $localDeviceObjects = @()
+    if ($usb) { $localDeviceObjects += @($usb) }
+    if ($monitors) { $localDeviceObjects += @($monitors) }
+    if ($printers) { $localDeviceObjects += @($printers) }
+    if ($audioDevices) { $localDeviceObjects += @($audioDevices) }
+    $localDevicesDetected = if ($localDeviceObjects.Count -gt 0) { "Yes" } else { "No" }
+
+    Add-Line "Local devices detected" $localDevicesDetected
     Add-Table "USB Devices" $usb
     Add-Table "Monitors" $monitors
     Add-Table "Printers" $printers
     Add-Table "Print Queue" $printJobs
+    Add-Table "Audio Devices" $audioDevices
     Add-Table "SMB Shares" $shares
-    Set-JsonSection "HardwareExtras" ([ordered]@{ USB = $usb; Monitors = $monitors; Printers = $printers; PrintJobs = $printJobs; Shares = $shares })
+    Set-JsonSection "HardwareExtras" ([ordered]@{ USB = $usb; Monitors = $monitors; Printers = $printers; PrintJobs = $printJobs; AudioDevices = $audioDevices; Shares = $shares })
+}
+
+Invoke-SafeBlock {
+    Add-Section "FILE AND FOLDER INTELLIGENCE"
+    $foldersToInspect = @(
+        ([Environment]::GetFolderPath('Desktop')),
+        ([Environment]::GetFolderPath('MyDocuments')),
+        ([Environment]::GetFolderPath('UserProfile') + '\Downloads'),
+        ([Environment]::GetFolderPath('LocalApplicationData') + '\Temp'),
+        ([Environment]::GetFolderPath('Recent')),
+        'C:\Windows\Temp'
+    ) | Where-Object { $_ -and (Test-Path $_) }
+
+    $recentFiles = Get-RecentFilesFromPaths -Paths $foldersToInspect
+    Add-Table "Recent Files (Top 100)" $recentFiles
+    Set-JsonSection "RecentFiles" $recentFiles
+}
+
+Invoke-SafeBlock {
+    Add-Section "SYSTEM DETAILS"
+    $fontFiles = Get-ChildItem -Path "$env:WINDIR\Fonts" -File -ErrorAction SilentlyContinue | Select-Object -First 80 Name, FullName, Length
+    Add-Table "Installed Fonts (sample)" $fontFiles
+    Set-JsonSection "SystemDetails" ([ordered]@{ Fonts = $fontFiles })
 }
 
 Invoke-SafeBlock {
@@ -877,6 +1126,21 @@ $jsonData["OutputFiles"] = [ordered]@{
     ZipReport = $zipOut
     DoneMarker = $done
 }
+
+Add-Section "SUMMARY"
+$summary = [ordered]@{
+    User = $basic.CurrentUser
+    Machine = $basic.Machine
+    OS = $jsonData['OSAndDevice'].OS
+    CPU = if ($jsonData['CPU'] -is [array]) { $jsonData['CPU'][0].Name } else { $jsonData['CPU'].Name }
+    RAM = if ($jsonData['OSAndDevice'].TotalPhysicalMemoryBytes) { ConvertTo-DisplaySize -Bytes ([int64]$jsonData['OSAndDevice'].TotalPhysicalMemoryBytes) } else { 'Unknown' }
+    VPN = if ($jsonData['VPN']) { $jsonData['VPN'].Status } else { 'Not collected' }
+    StartupItems = if ($jsonData['StartupAndScheduled'] -and $jsonData['StartupAndScheduled'].Startup) { $jsonData['StartupAndScheduled'].Startup.Count } else { 0 }
+    InstalledApps = if ($jsonData['Software']) { $jsonData['Software'].InstalledAppCount } else { 0 }
+    PublicIP = if ($jsonData['Internet']) { $jsonData['Internet'].PublicIP } else { 'Unavailable' }
+}
+foreach ($key in $summary.Keys) { Add-Line $key $summary[$key] }
+Set-JsonSection "Summary" $summary
 
 Set-Content -Path $jsonOut -Value ($jsonData | ConvertTo-Json -Depth 8) -Encoding UTF8
 
