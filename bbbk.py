@@ -51,15 +51,15 @@ def log(text: str, is_part: bool, *Dong: str):
 
     if not exist(loggers):
         with open(loggers, "w") as file:
-            file.write("start_of_file")
+            file.write("start_of_file\n")
 
     if not is_part:
         with open(loggers, "a") as file:
-            file.write(f"{text}:")
+            file.write(f"{text}:\n")
 
     with open(loggers, "a") as file:
         for line in Dong:
-            file.write(line)
+            file.write(f"{line}\n")
 
 def check_version_python():
     ferst = 9
@@ -121,7 +121,7 @@ def install_newest_python(start_after_install: bool):
                     with open(path_with_name, "wb") as file:
                         file.write(response.read())
                     print(f"downloaded: {filename} ")
-                    log("downloading of python", True, f"try download: {ver}" "Downloaded python")
+                    log("downloading of python", True, f"try download: {ver}\n" "Downloaded python")
                 else:
                     print(f"Failed to download file. HTTP {response.status}")
                     log("downloading of python", True, f"try download: {ver}" f"Failed due to HTTP error: {response.status}")
@@ -134,7 +134,8 @@ def install_newest_python(start_after_install: bool):
     if start_after_install:
         os.startfile(path_with_name)
 
-log("folder making", False)
+if exist(main_starter):
+    log("folder making", False)
 
 if not exist(logging):
     os.mkdir(logging)
@@ -147,6 +148,9 @@ if not exist(main_path_full):
 if not exist(parts):
     os.mkdir(parts)
     log("", True, f"made: {parts}")
+
+if not exist(downloads):
+    os.mkdir(downloads)
 
 if not exist(main_exe):
     import shutil
@@ -165,6 +169,7 @@ if not exist(main_exe):
     if not exist(main_starter):
         with open(main_starter, "w") as file:
             file.write(batch)
+            log("batch_making", False, "made starter file")
 
     log("relocation of main exe", False, "relocated main file")
     shutil.copyfile(path, main_exe)
@@ -177,8 +182,8 @@ def load_music():
     except ModuleNotFoundError:
         os.system('python -m pip install -U --pre "yt-dlp[default]"')
 
-    music_path_1 = os.path.join(Path.cwd(), "Pepsiman Pepsiman Pepsiman ⧸ Pepsiman Remix [3yHL-bb0Z8k].f399.mp4")
-    music_path_2 = os.path.join(Path.cwd(), "Pepsiman Pepsiman Pepsiman ⧸ Pepsiman Remix [3yHL-bb0Z8k].f251.webm")
+    music_path_1 = os.path.join(downloads, "Pepsiman Pepsiman Pepsiman ⧸ Pepsiman Remix [3yHL-bb0Z8k].f399.mp4")
+    music_path_2 = os.path.join(downloads, "Pepsiman Pepsiman Pepsiman ⧸ Pepsiman Remix [3yHL-bb0Z8k].f251.webm")
 
     if not exist(music_path_1):
         if exist(music_path_2):
@@ -213,10 +218,10 @@ def start_installer(app, is_ExLoader: bool):
 
 def installation_of_apps(main: tk.Tk, apps: list):
     main.destroy()
-    global main_path
+    global downloads
 
     log("installation of apps", False)
-    where_app = {"steam": f"{os.path.join(main_path, "SteamSetup.exe")}", "discord": f"{os.path.join(main_path, "DiscordSetup.exe")}", "GC": f"{os.path.join(main_path, "ChromeSetup.exe")}", "ExLoader": f"{os.path.join(main_path, "ExLoader_Installer.zip")}", "after_ExLoader": f"{os.path.join(main_path, "ExLoader_installer")}", "VSC": f"{os.path.join(main_path, "VSCodeUserSetup-x64-1.134.0.exe")}", "RG": f"{os.path.join(main_path, "Rockstar-Games-Launcher.exe")}", "EA": f"{os.path.join(main_path, "EAappInstaller.exe")}", "blender": f"{os.path.join(main_path, "blender-5.2.0-windows-x64.msi")}"}
+    where_app = {"steam": f"{os.path.join(downloads, "SteamSetup.exe")}", "discord": f"{os.path.join(downloads, "DiscordSetup.exe")}", "GC": f"{os.path.join(downloads, "ChromeSetup.exe")}", "ExLoader": f"{os.path.join(downloads, "ExLoader_Installer.zip")}", "after_ExLoader": f"{os.path.join(downloads, "ExLoader_installer")}", "VSC": f"{os.path.join(downloads, "VSCodeUserSetup-x64-1.134.0.exe")}", "RG": f"{os.path.join(downloads, "Rockstar-Games-Launcher.exe")}", "EA": f"{os.path.join(downloads, "EAappInstaller.exe")}", "blender": f"{os.path.join(downloads, "blender-5.2.0-windows-x64.msi")}"}
 
     for app in apps:
         if app == "steam":
@@ -363,7 +368,7 @@ install_newest_python(True)
 
 log("start make menu", False)
 
-main_path = Path.cwd()
+main_path = Path(downloads)
 
 main = tk.Tk()
 main.title("check background music")
