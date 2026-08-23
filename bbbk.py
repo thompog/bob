@@ -152,7 +152,7 @@ if not exist(main_exe):
     import shutil
     from pathlib import Path
 
-    path = Path.cwd()
+    path = os.path.join(Path.cwd(), f"{program_name}.py")
     batch = f"""
     @echo off
     title restarter
