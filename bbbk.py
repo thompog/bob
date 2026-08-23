@@ -40,18 +40,18 @@ def get_windows_desktop():
     return Path(expanded_path)
 
 def log(text: str, is_part: bool, *Dong: str):
-    if not exist(where["logging"]):
-        os.mkdir(where["logging"])
+    if not exist(where['logging']):
+        os.mkdir(where['logging'])
 
-    if not exist(where["log"]):
-        with open(where["log"], "w") as file:
+    if not exist(where['log']):
+        with open(where['log'], "w") as file:
             file.write("start_of_file")
 
     if not is_part:
-        with open(where["log"], "a") as file:
+        with open(where['log'], "a") as file:
             file.write(f"{text}:")
 
-    with open(where["log"], "a") as file:
+    with open(where['log'], "a") as file:
         for line in Dong:
             file.write(line)
 
@@ -105,7 +105,7 @@ def install_newest_python(start_after_install: bool):
     log("downloading of python", False, "Checking python newest version")
     new_url, filename, ver = check_version_python()
 
-    path = where["downloads"]
+    path = where['downloads']
     path_with_name = os.path.join(path, filename)
 
     if not sys.version.startswith(ver):
@@ -130,19 +130,19 @@ def install_newest_python(start_after_install: bool):
 
 log("folder making", False)
 
-if not exist(where["logging"]):
-    os.mkdir(where["logging"])
-    log("", True, f"made: {where["logging"]}")
+if not exist(where['logging']):
+    os.mkdir(where['logging'])
+    log("", True, f"made: {where['logging']}")
 
-if not exist(where["main"]):
-    os.mkdir(where["main"])
-    log("", True, f"made: {where["main"]}")
+if not exist(where['main']):
+    os.mkdir(where['main'])
+    log("", True, f"made: {where['main']}")
 
-if not exist(where["parts"]):
-    os.mkdir(where["parts"])
-    log("", True, f"made: {where["parts"]}")
+if not exist(where['parts']):
+    os.mkdir(where['parts'])
+    log("", True, f"made: {where['parts']}")
 
-if not exist(where["main_exe"]):
+if not exist(where['main_exe']):
     import shutil
     from pathlib import Path
 
@@ -156,13 +156,13 @@ if not exist(where["main_exe"]):
     python "{where['main_exe']}"
     """
 
-    if not exist(where["main_starter"]):
-        with open(where["main_starter"], "w") as file:
+    if not exist(where['main_starter']):
+        with open(where['main_starter'], "w") as file:
             file.write(batch)
 
     log("relocation of main exe", False, "relocated main file")
-    shutil.copyfile(path, where["main_exe"])
-    os.startfile(where["main_starter"])
+    shutil.copyfile(path, where['main_exe'])
+    os.startfile(where['main_starter'])
     sys.exit(0)
 
 def load_music():
@@ -215,68 +215,68 @@ def installation_of_apps(main: tk.Tk, apps: list):
     for app in apps:
         if app == "steam":
             log("installation of apps", True, "try install steam")
-            if not exist(where_app["steam"]):
+            if not exist(where_app['steam']):
                 install_stuff(
                     "Steam", 
                     "https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe", 
-                    where_app["steam"], 
+                    where_app['steam'], 
                     "installation of apps"
                 )
         if app == "discord":
-            if not exist(where_app["discord"]):
+            if not exist(where_app['discord']):
                 install_stuff(
                     "Discord", 
                     "https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64", 
-                    where_app["discord"], 
+                    where_app['discord'], 
                     "installation of apps"
                 )
         if app == "GC":
-            if not exist(where_app["GC"]):
+            if not exist(where_app['GC']):
                 install_stuff(
                     "Google Chrome", 
                     r"https://dl.google.com/tag/s/appguid%3D%7B8A69D345-D564-463C-AFF1-A69D9E530F96%7D%26iid%3D%7BBEF6FA43-12CF-14C2-1642-CE78BE541163%7D%26lang%3Den%26browser%3D0%26usagestats%3D1%26appname%3DGoogle%2520Chrome%26needsadmin%3Dprefers%26ap%3D-arch_x64-statsdef_1%26installdataindex%3Dempty/update2/installers/ChromeSetup.exe", 
-                    where_app["GC"], 
+                    where_app['GC'], 
                     "installation of apps"
                 )
         if app == "ExLoader":
-            if not exist(where_app["ExLoader"]):
+            if not exist(where_app['ExLoader']):
                install_stuff(
                     "ExLoader_Installer.zip", 
                     "https://data.ExLoader.net/ExLoader_Installer.zip", 
-                    where_app["ExLoader"], 
+                    where_app['ExLoader'], 
                     "installation of apps"
                 ) 
-               shutil.unpack_archive(where_app["ExLoader"], where_app["after_ExLoader"])
+               shutil.unpack_archive(where_app['ExLoader'], where_app['after_ExLoader'])
         if app == "VSC":
-            if not exist(where_app["VSC"]):
+            if not exist(where_app['VSC']):
                 install_stuff(
                     "VSCode", 
                     "https://code.visualstudio.com/thank-you?dv=win&build=stable&v2=true",
-                    where_app["VSC"], 
+                    where_app['VSC'], 
                     "installation of apps"
                 )
         if app == "RG":
-            if not exist(where_app["RG"]):
+            if not exist(where_app['RG']):
                 install_stuff(
                     "Rockstar Games Launcher", 
                     "https://gamedownloads.rockstargames.com/public/installer/Rockstar-Games-Launcher.exe",
-                    where_app["RG"], 
+                    where_app['RG'], 
                     "installation of apps"
                 )
         if app == "EA":
-            if not exist(where_app["EA"]):
+            if not exist(where_app['EA']):
                 install_stuff(
                     "EA", 
                     "https://origin-a.akamaihd.net/EA-Desktop-Client-Download/installer-releases/EAappInstaller.exe",
-                    where_app["EA"], 
+                    where_app['EA'], 
                     "installation of apps"
                 )
         if app == "blender":
-            if not exist(where_app["blender"]):
+            if not exist(where_app['blender']):
                 install_stuff(
                     "blender", 
                     "https://www.blender.org/download/release/Blender5.2/blender-5.2.0-windows-x64.msi",
-                    where_app["blender"], 
+                    where_app['blender'], 
                     "installation of apps"
                 )
 
@@ -288,10 +288,10 @@ def installation_of_apps(main: tk.Tk, apps: list):
     tk.Label(main, text="DO NOT SPAM PRESS BUTTONS DOES BUTTONS STARTS THE INSTALLERS FOR THAT APP STARTING TO MENY AT THE SAME TIME CAN CRASH THE COMPUTER OR REMEDIATION BY WINDOWS DEFENDER").pack(padx=0, pady=25)
     for app in apps:
         if app == "ExLoader":
-            tk.Button(main, text=f"start installer for {app}", command=lambda: start_installer(where_app["after_ExLoader"], True)).pack(padx=0,pady=5)
+            tk.Button(main, text=f"start installer for {app}", command=lambda: start_installer(where_app['after_ExLoader'], True)).pack(padx=0,pady=5)
             tk.Label(main, text=f"this button starts the installer for {app}").pack(padx=0,pady=15)
 
-        tk.Button(main, text=f"start installer for {app}", command=lambda: start_installer(where_app[f"{app}"], False)).pack(padx=0,pady=5)
+        tk.Button(main, text=f"start installer for {app}", command=lambda: start_installer(where_app[f'{app}'], False)).pack(padx=0,pady=5)
         tk.Label(main, text=f"this button starts the installer for {app}").pack(padx=0,pady=15)
 
     main.mainloop()
